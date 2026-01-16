@@ -8,7 +8,7 @@ const port = process.env.PORT;
 
 const allowedOrigins = [
     'http://localhost:3000',
-    'https://dashboard.pages.dev',
+    'virtual-scroll-dashboard-frontend.pages.dev',
     'https://project3.enaeble.co.kr',
 ];
   
