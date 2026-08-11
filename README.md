@@ -1,88 +1,81 @@
-## High-Performance Admin Dashboard (10k+ Rows)
+# Virtual Scroll Dashboard (Backend)
 
-> **"10,000건 이상의 대용량 데이터를 60FPS로 렌더링하는 고성능 어드민 대시보드"**
->
-> Next.js(Client)와 Node.js(Server), Supabase(DB)를 분리한 아키텍처로 구축되었으며, TanStack Virtual을 활용한 가상화(Virtualization) 기술과 URL 기반 상태 동기화(URL Sync)를 통해 최상의 UX를 구현했습니다.
+> 어드민 대시보드의 API 서버입니다. 필터·정렬 조건을 받아 Supabase(PostgreSQL)에 질의하고 결과를 반환합니다.
+
+**Frontend** — https://github.com/E-nae/virtual_scroll_dashboard_frontend
+**Live Demo** — https://project3.enaeble.co.kr
+
+---
 
 ## Tech Stack
 
-### Frontend (Client)
 | Tech | Usage |
 | :--- | :--- |
-| **Next.js 14** | App Router 기반의 프론트엔드 프레임워크 |
-| **TypeScript** | 정적 타입 시스템을 통한 안정성 확보 |
-| **TanStack Query** | 서버 상태 관리 (Caching, Refetching) |
-| **TanStack Virtual** | **[Key Tech]** 대용량 데이터 가상 스크롤(Windowing) 구현 |
-| **Nuqs** | URL Query String과 React State의 양방향 동기화 |
-| **Recharts** | 데이터 시각화 (인터랙티브 차트) |
-| **Tailwind CSS** | 유틸리티 퍼스트 스타일링 |
-| **shadcn/ui** | 재사용 가능한 컴포넌트 시스템 구축 |
-
-### Backend (Server)
-| Tech | Usage |
-| :--- | :--- |
-| **Node.js (Express)** | REST API 서버 구축 |
-| **Supabase** | PostgreSQL 기반의 관리형 데이터베이스 |
-| **dotenv** | 환경 변수 및 보안 키 관리 |
+| **Node.js / Express** | REST API 서버 |
+| **TypeScript** | 정적 타입 |
+| **Supabase (PostgreSQL)** | 데이터 저장 |
+| **dotenv** | 환경 변수 관리 |
 
 ---
 
-## Key Technical Challenges & Solutions
+## 이 서버가 하는 일
 
-이 프로젝트의 핵심은 **"데이터가 많아져도 느려지지 않는 사용자 경험"**입니다. 개발 과정에서 마주친 문제와 해결책은 다음과 같습니다.
+프론트엔드가 보낸 검색어·상태 필터·정렬 조건을 받아 Supabase에 질의하고 결과를 JSON으로 돌려줍니다.
 
-### 1. 대용량 데이터 렌더링 성능 최적화 (DOM Virtualization)
-* **문제 상황:** 10,000건의 데이터를 일반적인 `<table>`로 렌더링 시, DOM 노드 과다 생성으로 브라우저 메모리가 급증하고 스크롤이 끊기는 현상(Jank) 발생.
-* **해결 방법:** **TanStack Virtual**을 도입하여 "화면에 보이는 영역(Viewport)"에 해당하는 약 15~20개의 행(Row)만 동적으로 렌더링하는 **Windowing 기법** 적용.
-* **성과:** 데이터가 10만 건으로 늘어나도 초기 로딩 속도와 스크롤 성능(60FPS) 유지.
+### 왜 Next.js 안에서 처리하지 않고 서버를 분리했나
 
-### 2. URL 기반의 필터 상태 동기화 (Deep Linking)
-* **문제 상황:** 사용자가 필터링한 상태에서 새로고침하거나 링크를 공유하면 검색 조건이 초기화되는 UX 문제.
-* **해결 방법:** `nuqs` 라이브러리를 활용하여 필터 상태(`search`, `status`)를 **URL Query String**과 실시간 동기화.
-* **성과:** 동료에게 링크 공유 시 보고 있던 화면 그대로 전달 가능, 브라우저 뒤로 가기/앞으로 가기 완벽 지원.
+Next.js의 Route Handler로도 충분히 가능한 규모입니다. 데이터를 다루는 로직의 위치를 화면 코드와 분리해두고 싶어서 별도 서버로 뺐습니다.
 
-### 3. API 요청 최적화 및 UX 개선 (Debouncing)
-* **문제 상황:** 검색어 입력 시 매 키보드 입력마다 API를 호출하여 서버 부하 발생 및 UI 깜빡임.
-* **해결 방법:** **Debouncing (500ms)** 기법을 적용하여 입력이 멈춘 뒤 요청을 전송하도록 개선. 동시에 `isFetching` 상태와 로컬 입력 상태를 조합하여 끊김 없는 로딩 인디케이터(Loading) 구현.
+**대가도 있었습니다.** 요청이 브라우저 → Node 서버 → Supabase로 한 단계 더 거쳐 가므로 지연이 늘어나고, 배포 대상도 두 개가 됩니다. 규모가 이보다 작았다면 굳이 나누지 않는 편이 나았을 것 같습니다.
 
-### 4. Supabase 연동 및 대량 데이터 Seeding
-* **문제 상황:** 테스트를 위한 10,000건의 Mock Data를 DB에 넣어야 했으며, Supabase의 API 요청 제한(Global Limit) 이슈 발생.
-* **해결 방법:**
-    * Node.js 기반의 **Seeding Script**를 작성하여 CSV 변환 및 Bulk Insert 구현.
-    * Supabase의 API 설정을 튜닝(`Max Rows`)하고, 서버 쿼리에서 `.range()`를 조정하여 페이지네이션 없이 대량 데이터 전송 파이프라인 구축.
-    * UUID 기반의 Primary Key 마이그레이션 진행.
+### 필터링을 왜 서버에서 하나
+
+전체 데이터를 클라이언트에 넘긴 뒤 브라우저에서 거를 수도 있지만, 그러면 필터 조건과 무관하게 항상 전체를 전송하게 됩니다. 조건에 맞는 행만 내려보내면 전송량이 조건에 비례해 줄어듭니다.
 
 ---
 
-## Architecture Overview
+## 테스트 데이터 시딩
 
-```mermaid
-graph LR
-    User[User / Browser] -->|Interaction| Client[Next.js Client]
-    Client -->|API Request (Filter/Sort)| NodeServer[Node.js Server]
-    NodeServer -->|SQL Query| DB[(Supabase PostgreSQL)]
-    DB -->|JSON Data| NodeServer
-    NodeServer -->|Filtered JSON| Client
-    Client -->|Virtual Render| User
+가상 스크롤의 효과를 확인하려면 실제로 많은 행이 필요했습니다.
 
+- `make-json.js` — 모의 결제 데이터를 생성하는 스크립트
+- `payments.csv` — 생성된 결과. 실제 데이터가 아닌 **전부 생성된 모의 데이터**입니다
 
-### Getting Started
-1. Installation & Setup
+**겪은 문제.** Supabase는 API 응답으로 내려주는 행 수에 기본 상한이 있어서, 데이터를 다 넣어도 조회 시 일부만 돌아왔습니다. 프로젝트 설정의 Max Rows 값을 조정하고 쿼리의 `.range()`를 맞춰 해결했습니다. 데이터가 안 들어간 게 아니라 응답에서 잘리고 있었다는 걸 확인하는 데 시간이 걸렸습니다.
 
-Bash
+Primary Key는 UUID로 두었습니다.
 
-# 1. Frontend Setup (Port 3000)
-cd client
+---
+
+## 알려진 한계
+
+가상화와 URL 상태 동기화를 프론트엔드에서 실험하는 것이 주 목적이라, 이 서버는 그에 필요한 최소한으로 만들었습니다.
+
+- **페이지네이션 없이 조건에 맞는 전체를 반환합니다.** 가상화 효과를 분리해서 보려고 의도적으로 이렇게 두었습니다. 그래서 프론트엔드의 렌더링 비용은 데이터 양과 무관해졌지만, 응답 크기와 파싱 비용은 그대로 남아 있습니다. 실제 서비스라면 커서 기반 페이징이 맞습니다.
+- **인증과 권한이 없습니다.** 누구나 API를 호출할 수 있습니다.
+- **캐싱이 없습니다.** 같은 조건의 요청도 매번 DB까지 갑니다.
+- **모의 데이터가 저장소에 포함되어 있습니다.** 데모 실행 편의를 위해 커밋했습니다.
+- **테스트 코드가 없습니다.**
+
+---
+
+## Getting Started
+
+### 환경 변수
+
+프로젝트 루트에 `.env` 파일을 만들고 Supabase 접속 정보를 설정합니다.
+
+```
+SUPABASE_URL=
+SUPABASE_KEY=
+PORT=4000
+```
+
+### 실행
+
+```bash
 pnpm install
-pnpm run dev
+pnpm dev
+```
 
-# 2. Backend Setup (Port 4000)
-cd server
-pnpm install
-pnpm start
-
-
-## Retrospective (배운 점)
-1. 가상화의 중요성: 대시보드 개발 시 데이터 양에 따른 렌더링 전략 수립이 필수적임을 체감했습니다.
-2. 서버/클라이언트 역할 분리: Next.js만 사용할 때보다 Node.js 서버를 분리함으로써 비즈니스 로직을 명확히 하고, 향후 확장성(MSA 등)을 고려한 구조를 설계할 수 있었습니다.
-3. DB 핸들링: Supabase의 RLS 정책과 대량 데이터 처리 시의 한계점(Payload Limit)을 직접 겪으며 해결하는 과정에서 백엔드 이해도가 높아졌습니다.
+`http://localhost:4000` 에서 대기합니다. 프론트엔드를 함께 실행해야 화면을 확인할 수 있습니다.
